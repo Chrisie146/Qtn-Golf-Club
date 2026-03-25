@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Queenstown Golf Club — Membership</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green-50: #EAF3DE; --green-100: #C0DD97; --green-200: #97C459;
+    --green-400: #639922; --green-600: #3B6D11; --green-800: #27500A; --green-900: #173404;
+    --amber-50: #FAEEDA; --amber-400: #BA7517; --amber-800: #633806;
+    --gray-50: #F1EFE8; --gray-100: #D3D1C7; --gray-200: #B4B2A9;
+    --gray-400: #888780; --gray-600: #5F5E5A; --gray-800: #444441; --gray-900: #2C2C2A;
+    --red-50: #FCEBEB; --red-200: #F09595; --red-600: #A32D2D; --red-800: #791F1F;
+    --blue-50: #E6F1FB; --blue-800: #0C447C;
+    --teal-50: #E1F5EE; --teal-400: #1D9E75; --teal-800: #085041;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: #f7f5f0; color: var(--gray-900); min-height: 100vh; }
+
+  /* ── AUTH SCREEN ── */
+  .auth-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; background: var(--green-900);
+  }
+  .auth-box {
+    background: #fff; border-radius: 14px; padding: 40px 36px; width: 360px;
+  }
+  .auth-box h1 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 4px; }
+  .auth-box p { font-size: 13px; color: var(--gray-400); margin-bottom: 28px; }
+  .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .auth-field label { font-size: 12px; font-weight: 500; color: var(--gray-600); }
+  .auth-field input {
+    padding: 9px 12px; border: 1px solid var(--gray-100); border-radius: 7px;
+    font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none;
+  }
+  .auth-field input:focus { border-color: var(--green-400); }
+  .auth-btn {
+    width: 100%; padding: 10px; background: var(--green-600); color: #fff;
+    border: none; border-radius: 7px; font-size: 14px; font-weight: 500;
+    cursor: pointer; margin-top: 6px;
+  }
+  .auth-btn:hover { background: var(--green-800); }
+  .auth-error { font-size: 12px; color: var(--red-600); margin-top: 10px; text-align: center; min-height: 18px; }
+
+  /* ── APP ── */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--green-900); flex-shrink: 0; display: flex; flex-direction: column; }
+  .sidebar-logo { padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-logo h1 { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 600; color: #fff; line-height: 1.3; }
+  .sidebar-logo span { font-size: 11px; color: var(--green-100); letter-spacing: 0.08em; text-transform: uppercase; }
+  .sidebar-nav { padding: 16px 0; flex: 1; }
+  .nav-section-label { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--green-100); padding: 8px 20px 4px; opacity: 0.6; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; color: rgba(255,255,255,0.7); font-size: 14px; transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .nav-item.active { background: rgba(255,255,255,0.1); color: #fff; border-left-color: var(--green-200); font-weight: 500; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-user { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .signout-btn { font-size: 12px; color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; padding: 0; }
+  .signout-btn:hover { color: #fff; }
+
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { background: #fff; border-bottom: 1px solid var(--gray-100); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 500; }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .btn-primary { background: var(--green-600); color: #fff; }
+  .btn-primary:hover { background: var(--green-800); }
+  .btn-outline { background: #fff; color: var(--gray-800); border: 1px solid var(--gray-100); }
+  .btn-outline:hover { border-color: var(--gray-400); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .content { padding: 24px 28px; overflow-y: auto; flex: 1; }
+
+  /* ── LOADING ── */
+  .loading-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(247,245,240,0.75);
+    z-index: 200; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--gray-100); border-top-color: var(--green-600); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 300;
+    background: var(--gray-900); color: #fff; padding: 10px 18px;
+    border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--red-600); }
+
+  /* ── STATS ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: #fff; border-radius: 10px; padding: 18px 20px; border: 1px solid var(--gray-100); }
+  .stat-label { font-size: 12px; color: var(--gray-400); margin-bottom: 6px; font-weight: 500; letter-spacing: 0.03em; }
+  .stat-value { font-size: 28px; font-weight: 300; color: var(--gray-900); line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--green-400); margin-top: 6px; }
+
+  /* ── CARD ── */
+  .card { background: #fff; border-radius: 10px; border: 1px solid var(--gray-100); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-50); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 15px; font-weight: 500; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; }
+  thead th { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400); padding: 10px 20px; text-align: left; border-bottom: 1px solid var(--gray-50); }
+  tbody tr { border-bottom: 1px solid var(--gray-50); transition: background 0.1s; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 13px 20px; font-size: 13.5px; }
+
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .member-cell { display: flex; align-items: center; gap: 10px; }
+  .member-name { font-weight: 500; font-size: 13.5px; }
+  .member-id { font-size: 11px; color: var(--gray-400); }
+
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge-gold { background: var(--amber-50); color: var(--amber-800); }
+  .badge-silver { background: var(--gray-50); color: var(--gray-600); }
+  .badge-platinum { background: var(--teal-50); color: var(--teal-800); }
+  .badge-active { background: var(--green-50); color: var(--green-800); }
+  .badge-overdue { background: var(--red-50); color: var(--red-800); }
+  .badge-pending { background: var(--amber-50); color: var(--amber-800); }
+  .badge-inactive { background: var(--gray-50); color: var(--gray-600); }
+
+  .action-btn { background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 4px 6px; border-radius: 4px; transition: all 0.15s; font-size: 12px; font-family: 'DM Sans', sans-serif; }
+  .action-btn:hover { color: var(--gray-900); background: var(--gray-50); }
+  .amount-paid { color: var(--green-400); font-weight: 500; }
+
+  .search-input { padding: 7px 12px 7px 32px; border: 1px solid var(--gray-100); border-radius: 6px; font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none; width: 220px; background: var(--gray-50) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888780' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center; }
+  .search-input:focus { border-color: var(--green-400); background-color: #fff; }
+
+  .progress-bar { height: 5px; background: var(--gray-100); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--gray-400); font-size: 14px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── MODAL ── */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; width: 500px; max-width: 95vw; padding: 28px; position: relative; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; font-weight: 500; color: var(--gray-600); }
+  input[type=text], input[type=email], input[type=date], input[type=number], input[type=password], select, textarea {
+    padding: 8px 11px; border: 1px solid var(--gray-100); border-radius: 6px;
+    font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--gray-900); outline: none; background: #fff;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--green-400); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+  .close-btn { position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; color: var(--gray-400); font-size: 18px; line-height: 1; }
+  select { cursor: pointer; }
+
+  .alert-banner { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 8px; border: 1px solid; margin-bottom: 16px; font-size: 13px; }
+  .alert-danger { background: var(--red-50); border-color: var(--red-200); color: var(--red-800); }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <span style="font-size:13px;color:var(--gray-600)" id="loadingMsg">Loading...</span>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- AUTH SCREEN -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-box">
+    <h1>Queenstown Golf Club</h1>
+    <p>Sign in to manage membership</p>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com" />
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="••••••••" />
+    </div>
+    <button class="auth-btn" onclick="signIn()">Sign in</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="appScreen" style="display:none">
+
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <h1>Queenstown<br>Golf Club</h1>
+      <span>Membership</span>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" onclick="showView('dashboard',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-section-label">Members</div>
+      <div class="nav-item" onclick="showView('members',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        All Members
+      </div>
+      <div class="nav-item" onclick="showView('unpaid',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Unpaid
+      </div>
+      <div class="nav-item" onclick="showView('renewals',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+        Renewals
+      </div>
+      <div class="nav-section-label">Finance</div>
+      <div class="nav-item" onclick="showView('payments',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Payment History
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user"></div>
+      <button class="signout-btn" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="btn btn-outline btn-sm" onclick="openModal('addMemberModal')">+ Add Member</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('recordPaymentModal')">Record Payment</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div id="view-dashboard" class="view active">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Members</div>
+            <div class="stat-value" id="stat-total">—</div>
+            <div class="stat-sub" id="stat-total-sub"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Paid — Current</div>
+            <div class="stat-value" id="stat-paid" style="color:var(--green-600)">—</div>
+            <div class="stat-sub" id="stat-paid-sub"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Unpaid / Overdue</div>
+            <div class="stat-value" id="stat-unpaid" style="color:var(--red-600)">—</div>
+            <div class="stat-sub" id="stat-unpaid-sub" style="color:var(--red-600)"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Fees Collected (YTD)</div>
+            <div class="stat-value" id="stat-collected">—</div>
+            <div class="stat-sub" id="stat-collected-sub"></div>
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Payment Status</span></div>
+            <div style="padding:16px 20px">
+              <div style="margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <span style="font-size:13px;color:var(--gray-600)">Paid</span>
+                  <span style="font-size:13px;font-weight:500;color:var(--green-600)" id="bar-paid-label">0</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="bar-paid" style="width:0%;background:var(--green-400)"></div></div>
+              </div>
+              <div style="margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <span style="font-size:13px;color:var(--gray-600)">Pending</span>
+                  <span style="font-size:13px;font-weight:500;color:var(--amber-400)" id="bar-pending-label">0</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="bar-pending" style="width:0%;background:var(--amber-400)"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <span style="font-size:13px;color:var(--gray-600)">Overdue</span>
+                  <span style="font-size:13px;font-weight:500;color:var(--red-600)" id="bar-overdue-label">0</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="bar-overdue" style="width:0%;background:var(--red-600)"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Unpaid members</span>
+              <button class="action-btn" onclick="showView('unpaid',document.querySelector('[onclick*=unpaid]'))">View all →</button>
+            </div>
+            <table><tbody id="dash-unpaid-list"><tr><td colspan="3"><div class="empty-state">Loading...</div></td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL MEMBERS -->
+      <div id="view-members" class="view">
+        <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap">
+          <input class="search-input" type="text" placeholder="Search name or ID..." oninput="filterMembers(this.value)" id="member-search" />
+          <select onchange="filterByCat(this.value)" style="padding:7px 10px;font-size:13px;border:1px solid var(--gray-100);border-radius:6px">
+            <option value="">All categories</option>
+            <option>Full</option><option>Senior</option><option>Junior</option><option>Social</option>
+          </select>
+          <select onchange="filterByPay(this.value)" style="padding:7px 10px;font-size:13px;border:1px solid var(--gray-100);border-radius:6px">
+            <option value="">All payment statuses</option>
+            <option>Paid</option><option>Pending</option><option>Overdue</option>
+          </select>
+          <span style="margin-left:auto;font-size:12px;color:var(--gray-400)" id="member-count"></span>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Member</th><th>Category</th><th>Member since</th><th>Year</th><th>Annual fee</th><th>Payment</th><th></th></tr></thead>
+            <tbody id="members-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- UNPAID -->
+      <div id="view-unpaid" class="view">
+        <div class="alert-banner alert-danger" id="unpaid-banner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="unpaid-banner-text">Loading...</span>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Members with outstanding fees</span></div>
+          <table>
+            <thead><tr><th>Member</th><th>Category</th><th>Annual fee</th><th>Status</th><th>Year</th><th></th></tr></thead>
+            <tbody id="unpaid-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RENEWALS -->
+      <div id="view-renewals" class="view">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Memberships expiring within 60 days</span></div>
+          <table>
+            <thead><tr><th>Member</th><th>Category</th><th>Expiry</th><th>Annual fee</th><th>Payment</th><th></th></tr></thead>
+          <tbody id="renewals-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PAYMENT HISTORY -->
+      <div id="view-payments" class="view">
+        <div class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:20px">
+          <div class="stat-card">
+            <div class="stat-label">Total collected (YTD)</div>
+            <div class="stat-value" id="pay-collected">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Outstanding</div>
+            <div class="stat-value" id="pay-outstanding" style="color:var(--red-600)">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Payments recorded</div>
+            <div class="stat-value" id="pay-count">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Payment records</span></div>
+          <table>
+            <thead><tr><th>Date</th><th>Member</th><th>Year</th><th>Method</th><th>Amount</th><th>Reference</th></tr></thead>
+            <tbody id="payments-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ADD MEMBER MODAL -->
+<div class="modal-backdrop" id="addMemberModal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('addMemberModal')">&#x2715;</button>
+    <h2>New Member</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>First name *</label><input type="text" id="new-first" placeholder="e.g. Thabo" /></div>
+      <div class="form-group"><label>Last name *</label><input type="text" id="new-last" placeholder="e.g. Mokoena" /></div>
+      <div class="form-group full"><label>Email</label><input type="email" id="new-email" placeholder="thabo@example.com" /></div>
+      <div class="form-group"><label>Phone</label><input type="text" id="new-phone" placeholder="073 123 4567" /></div>
+      <div class="form-group"><label>Category</label>
+        <select id="new-cat" onchange="prefillFee()">
+          <option>Full</option><option>Senior</option><option>Junior</option><option>Social</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Join date</label><input type="date" id="new-joined" /></div>
+      <div class="form-group"><label>Subscription year</label><input type="number" id="new-year" value="2026" /></div>
+      <div class="form-group"><label>Annual fee (R)</label><input type="number" id="new-fee" placeholder="e.g. 3600" /></div>
+      <div class="form-group full"><label>Payment status</label>
+        <select id="new-paystatus">
+          <option value="Pending">Pending</option>
+          <option value="Paid">Paid</option>
+          <option value="Overdue">Overdue</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('addMemberModal')">Cancel</button>
+      <button class="btn btn-primary" id="addMemberBtn" onclick="addMember()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECORD PAYMENT MODAL -->
+<div class="modal-backdrop" id="recordPaymentModal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('recordPaymentModal')">&#x2715;</button>
+    <h2>Record Payment</h2>
+    <div class="form-grid">
+      <div class="form-group full"><label>Member</label><select id="pay-member"></select></div>
+      <div class="form-group"><label>Subscription year</label><input type="number" id="pay-year" value="2026" /></div>
+      <div class="form-group"><label>Amount (R)</label><input type="number" id="pay-amount" placeholder="0.00" /></div>
+      <div class="form-group"><label>Method</label>
+        <select id="pay-method"><option>EFT</option><option>Cash</option><option>Card</option><option>SnapScan</option></select>
+      </div>
+      <div class="form-group"><label>Date</label><input type="date" id="pay-date" /></div>
+      <div class="form-group full"><label>Reference</label><input type="text" id="pay-ref" placeholder="Optional" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('recordPaymentModal')">Cancel</button>
+      <button class="btn btn-primary" id="recordPayBtn" onclick="recordPayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- MARK PAID MODAL -->
+<div class="modal-backdrop" id="markPaidModal">
+  <div class="modal" style="width:380px">
+    <button class="close-btn" onclick="closeModal('markPaidModal')">&#x2715;</button>
+    <h2>Mark as Paid</h2>
+    <p style="font-size:14px;color:var(--gray-600);margin-bottom:20px" id="markpaid-desc"></p>
+    <div class="form-grid">
+      <div class="form-group"><label>Method</label>
+        <select id="mp-method"><option>EFT</option><option>Cash</option><option>Card</option><option>SnapScan</option></select>
+      </div>
+      <div class="form-group"><label>Date</label><input type="date" id="mp-date" /></div>
+      <div class="form-group full"><label>Reference</label><input type="text" id="mp-ref" placeholder="Optional" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('markPaidModal')">Cancel</button>
+      <button class="btn btn-primary" id="markPaidBtn" onclick="confirmMarkPaid()">Confirm Payment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONFIGURATION — replace these two values with your
+// Supabase project URL and anon key
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const SUPABASE_URL  = 'https://ekmivbcfuzwevmollbik.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_8oHkXrbe1Ul08QAvyBF3SA_h7-F-6YH';
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const CAT_FEES = { Full: 3600, Senior: 2400, Junior: 1200, Social: 1800 };
+const CURRENT_YEAR = new Date().getFullYear();
+
+let allMembers = [];
+let allPayments = [];
+let pendingMarkPaidId = null;
+let catFilter = '';
+let payFilter = '';
+
+// ── HELPERS ────────────────────────────────────────
+
+function showLoading(msg = 'Loading...') {
+  document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function avatarColors(ch) {
+  const c = [['var(--green-50)','var(--green-800)'],['var(--amber-50)','var(--amber-800)'],['var(--teal-50)','var(--teal-800)'],['var(--blue-50)','var(--blue-800)']];
+  return c[(ch || 'A').charCodeAt(0) % 4];
+}
+
+function payBadge(s) {
+  if(s==='Paid') return '<span class="badge badge-active">Paid</span>';
+  if(s==='Overdue') return '<span class="badge badge-overdue">Overdue</span>';
+  return '<span class="badge badge-pending">Pending</span>';
+}
+
+function catBadge(c) {
+  const map = { Full:'badge-gold', Senior:'badge-silver', Junior:'badge-platinum', Social:'badge-inactive' };
+  return `<span class="badge ${map[c]||'badge-silver'}">${c}</span>`;
+}
+
+function memberAvatar(m) {
+  const initials = (m.first_name[0]||'') + (m.last_name[0]||'');
+  const [bg,fg] = avatarColors(initials);
+  return `<div class="avatar" style="background:${bg};color:${fg}">${initials}</div>`;
+}
+
+function fmtDate(d) {
+  if(!d) return '—';
+  return new Date(d).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function setBtn(id, loading, label) {
+  const b = document.getElementById(id);
+  if(!b) return;
+  b.disabled = loading;
+  b.textContent = loading ? 'Please wait...' : label;
+}
+
+// ── AUTH ────────────────────────────────────────────
+
+async function signIn() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
+  document.getElementById('auth-error').textContent = '';
+  showLoading('Signing in...');
+  const { error } = await db.auth.signInWithPassword({ email, password: pass });
+  hideLoading();
+  if(error) { document.getElementById('auth-error').textContent = error.message; return; }
+  await bootApp();
+}
+
+async function signOut() {
+  await db.auth.signOut();
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+// ── BOOT ────────────────────────────────────────────
+
+async function bootApp() {
+  const { data: { user } } = await db.auth.getUser();
+  if(!user) return;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'flex';
+  document.getElementById('sidebar-user').textContent = user.email;
+  document.getElementById('new-joined').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pay-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mp-date').value = new Date().toISOString().split('T')[0];
+  await loadAll();
+}
+
+async function loadAll() {
+  showLoading('Loading members...');
+  const [{ data: members, error: me }, { data: payments, error: pe }] = await Promise.all([
+    db.from('members').select('*').order('last_name'),
+    db.from('payments').select('*').order('payment_date', { ascending: false })
+  ]);
+  hideLoading();
+  if(me || pe) { showToast('Error loading data', true); return; }
+  allMembers  = members  || [];
+  allPayments = payments || [];
+  refreshMemberSelect();
+  renderDashboard();
+  renderMembers(allMembers);
+  renderUnpaid();
+  renderRenewals();
+  renderPayments();
+}
+
+// ── RENDER ──────────────────────────────────────────
+
+function renderDashboard() {
+  const total    = allMembers.length;
+  const paid     = allMembers.filter(m => m.pay_status === 'Paid').length;
+  const pending  = allMembers.filter(m => m.pay_status === 'Pending').length;
+  const overdue  = allMembers.filter(m => m.pay_status === 'Overdue').length;
+  const unpaid   = pending + overdue;
+  const collected= allPayments.filter(p => new Date(p.payment_date).getFullYear() === CURRENT_YEAR)
+                              .reduce((s,p) => s + Number(p.amount), 0);
+  const outstanding = allMembers.filter(m => m.pay_status !== 'Paid').reduce((s,m) => s + Number(m.annual_fee), 0);
+
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-total-sub').textContent = `${paid} paid this year`;
+  document.getElementById('stat-paid').textContent = paid;
+  document.getElementById('stat-paid-sub').textContent = total ? `${Math.round(paid/total*100)}% of members` : '';
+  document.getElementById('stat-unpaid').textContent = unpaid;
+  document.getElementById('stat-unpaid-sub').textContent = `R ${outstanding.toLocaleString()} outstanding`;
+  document.getElementById('stat-collected').textContent = `R ${collected.toLocaleString()}`;
+  document.getElementById('stat-collected-sub').textContent = `${allPayments.filter(p=>new Date(p.payment_date).getFullYear()===CURRENT_YEAR).length} payments`;
+
+  document.getElementById('bar-paid-label').textContent = paid;
+  document.getElementById('bar-pending-label').textContent = pending;
+  document.getElementById('bar-overdue-label').textContent = overdue;
+  document.getElementById('bar-paid').style.width    = total ? (paid/total*100)+'%' : '0%';
+  document.getElementById('bar-pending').style.width = total ? (pending/total*100)+'%' : '0%';
+  document.getElementById('bar-overdue').style.width = total ? (overdue/total*100)+'%' : '0%';
+
+  const unpaidList = allMembers.filter(m => m.pay_status !== 'Paid').slice(0,4);
+  document.getElementById('dash-unpaid-list').innerHTML = unpaidList.length
+    ? unpaidList.map(m => `<tr>
+        <td><div class="member-cell">${memberAvatar(m)}<div>
+          <div class="member-name">${m.first_name} ${m.last_name}</div>
+          <div class="member-id">R ${Number(m.annual_fee).toLocaleString()}</div>
+        </div></div></td>
+        <td>${payBadge(m.pay_status)}</td>
+        <td><button class="btn btn-outline btn-sm" onclick="openMarkPaid('${m.id}')">Mark paid</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="3"><div class="empty-state">All members are paid up!</div></td></tr>';
+}
+
+function renderMembers(list) {
+  const c = document.getElementById('member-count');
+  if(c) c.textContent = `${list.length} member${list.length!==1?'s':''}`;
+  const tbody = document.getElementById('members-tbody');
+  if(!list.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">No members found</div></td></tr>'; return; }
+  tbody.innerHTML = list.map(m => `<tr>
+    <td><div class="member-cell">${memberAvatar(m)}
+      <div><div class="member-name">${m.first_name} ${m.last_name}</div><div class="member-id">${m.member_number||m.id.slice(0,8)}</div></div>
+    </div></td>
+    <td>${catBadge(m.category)}</td>
+    <td style="color:var(--gray-400);font-size:13px">${fmtDate(m.join_date)}</td>
+    <td style="font-size:13px">${m.subscription_year}</td>
+    <td style="font-weight:500">R ${Number(m.annual_fee).toLocaleString()}</td>
+    <td>${payBadge(m.pay_status)}</td>
+    <td>${m.pay_status!=='Paid'?`<button class="action-btn" style="color:var(--green-600)" onclick="openMarkPaid('${m.id}')">Mark paid</button>`:''}</td>
+  </tr>`).join('');
+}
+
+function filterMembers(q) {
+  const filtered = allMembers.filter(m => {
+    const text = `${m.first_name} ${m.last_name} ${m.member_number||''}`.toLowerCase();
+    return text.includes(q.toLowerCase()) && (!catFilter || m.category===catFilter) && (!payFilter || m.pay_status===payFilter);
+  });
+  renderMembers(filtered);
+}
+function filterByCat(v) { catFilter = v; filterMembers(document.getElementById('member-search').value); }
+function filterByPay(v) { payFilter = v; filterMembers(document.getElementById('member-search').value); }
+
+function renderUnpaid() {
+  const list = allMembers.filter(m => m.pay_status !== 'Paid');
+  const outstanding = list.reduce((s,m) => s+Number(m.annual_fee), 0);
+  const bannerEl = document.getElementById('unpaid-banner-text');
+  if(bannerEl) bannerEl.textContent = list.length
+    ? `${list.length} member${list.length!==1?'s':''} have not paid — R ${outstanding.toLocaleString()} outstanding`
+    : 'All members are paid up for this year!';
+  const tbody = document.getElementById('unpaid-tbody');
+  if(!tbody) return;
+  if(!list.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">All members are paid up!</div></td></tr>'; return; }
+  tbody.innerHTML = list.map(m => `<tr>
+    <td><div class="member-cell">${memberAvatar(m)}
+      <div><div class="member-name">${m.first_name} ${m.last_name}</div><div class="member-id">${m.member_number||m.id.slice(0,8)}</div></div>
+    </div></td>
+    <td>${catBadge(m.category)}</td>
+    <td style="font-weight:500">R ${Number(m.annual_fee).toLocaleString()}</td>
+    <td>${payBadge(m.pay_status)}</td>
+    <td style="font-size:13px">${m.subscription_year}</td>
+    <td><button class="action-btn" style="color:var(--green-600)" onclick="openMarkPaid('${m.id}')">Mark paid</button></td>
+  </tr>`).join('');
+}
+
+function renderRenewals() {
+  const tbody = document.getElementById('renewals-tbody');
+  if(!tbody) return;
+  const now = new Date(); const cutoff = new Date(); cutoff.setDate(cutoff.getDate()+60);
+  const rows = allMembers.map(m => {
+    const joined = new Date(m.join_date);
+    const exp = new Date(joined); exp.setFullYear(m.subscription_year+1);
+    return { m, exp };
+  }).filter(({exp}) => exp >= now && exp <= cutoff).sort((a,b)=>a.exp-b.exp);
+  tbody.innerHTML = rows.length ? rows.map(({m,exp}) => `<tr>
+    <td><div class="member-cell">${memberAvatar(m)}
+      <div><div class="member-name">${m.first_name} ${m.last_name}</div><div class="member-id">${m.member_number||m.id.slice(0,8)}</div></div>
+    </div></td>
+    <td>${catBadge(m.category)}</td>
+    <td style="font-size:13px">${fmtDate(exp)}</td>
+    <td style="font-weight:500">R ${Number(m.annual_fee).toLocaleString()}</td>
+    <td>${payBadge(m.pay_status)}</td>
+    <td>${m.pay_status!=='Paid'?`<button class="action-btn" style="color:var(--green-600)" onclick="openMarkPaid('${m.id}')">Mark paid</button>`:''}</td>
+  </tr>`).join('')
+  : '<tr><td colspan="6"><div class="empty-state">No renewals in the next 60 days</div></td></tr>';
+}
+
+function renderPayments() {
+  const ytd = allPayments.filter(p => new Date(p.payment_date).getFullYear()===CURRENT_YEAR);
+  const collected = ytd.reduce((s,p)=>s+Number(p.amount),0);
+  const outstanding = allMembers.filter(m=>m.pay_status!=='Paid').reduce((s,m)=>s+Number(m.annual_fee),0);
+  const pc = document.getElementById('pay-collected');
+  const po = document.getElementById('pay-outstanding');
+  const pn = document.getElementById('pay-count');
+  if(pc) pc.textContent = `R ${collected.toLocaleString()}`;
+  if(po) po.textContent = `R ${outstanding.toLocaleString()}`;
+  if(pn) pn.textContent = allPayments.length;
+  const tbody = document.getElementById('payments-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = allPayments.length
+    ? allPayments.map(p => `<tr>
+        <td style="font-size:13px;color:var(--gray-400)">${fmtDate(p.payment_date)}</td>
+        <td>${p.member_name||'—'}</td>
+        <td style="font-size:13px">${p.subscription_year}</td>
+        <td style="font-size:13px">${p.method}</td>
+        <td class="amount-paid">R ${Number(p.amount).toLocaleString()}</td>
+        <td style="font-size:12px;color:var(--gray-400)">${p.reference||'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6"><div class="empty-state">No payments recorded yet</div></td></tr>';
+}
+
+// ── ACTIONS ─────────────────────────────────────────
+
+function refreshMemberSelect() {
+  const sel = document.getElementById('pay-member');
+  if(sel) sel.innerHTML = allMembers.map(m =>
+    `<option value="${m.id}">${m.first_name} ${m.last_name} (${m.member_number||m.id.slice(0,8)})</option>`
+  ).join('');
+}
+
+function prefillFee() {
+  const cat = document.getElementById('new-cat').value;
+  document.getElementById('new-fee').value = CAT_FEES[cat] || '';
+}
+
+async function addMember() {
+  const first = document.getElementById('new-first').value.trim();
+  const last  = document.getElementById('new-last').value.trim();
+  if(!first || !last) { showToast('First and last name are required', true); return; }
+  setBtn('addMemberBtn', true, 'Add Member');
+  const { error } = await db.from('members').insert([{
+    first_name: first,
+    last_name: last,
+    email: document.getElementById('new-email').value.trim() || null,
+    phone: document.getElementById('new-phone').value.trim() || null,
+    category: document.getElementById('new-cat').value,
+    join_date: document.getElementById('new-joined').value || null,
+    subscription_year: parseInt(document.getElementById('new-year').value) || CURRENT_YEAR,
+    annual_fee: parseFloat(document.getElementById('new-fee').value) || CAT_FEES[document.getElementById('new-cat').value],
+    pay_status: document.getElementById('new-paystatus').value,
+  }]);
+  setBtn('addMemberBtn', false, 'Add Member');
+  if(error) { showToast('Error adding member: ' + error.message, true); return; }
+  showToast(`${first} ${last} added`);
+  closeModal('addMemberModal');
+  document.getElementById('new-first').value='';
+  document.getElementById('new-last').value='';
+  document.getElementById('new-email').value='';
+  document.getElementById('new-phone').value='';
+  document.getElementById('new-fee').value='';
+  await loadAll();
+}
+
+function openMarkPaid(id) {
+  pendingMarkPaidId = id;
+  const m = allMembers.find(x => x.id===id);
+  if(!m) return;
+  document.getElementById('markpaid-desc').textContent =
+    `${m.first_name} ${m.last_name} — R ${Number(m.annual_fee).toLocaleString()} (${m.subscription_year})`;
+  document.getElementById('mp-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mp-ref').value = '';
+  openModal('markPaidModal');
+}
+
+async function confirmMarkPaid() {
+  const m = allMembers.find(x => x.id===pendingMarkPaidId);
+  if(!m) return;
+  setBtn('markPaidBtn', true, 'Confirm Payment');
+  const [{ error: ue }, { error: pe }] = await Promise.all([
+    db.from('members').update({ pay_status: 'Paid' }).eq('id', m.id),
+    db.from('payments').insert([{
+      member_id: m.id,
+      member_name: `${m.first_name} ${m.last_name}`,
+      subscription_year: m.subscription_year,
+      payment_date: document.getElementById('mp-date').value,
+      method: document.getElementById('mp-method').value,
+      amount: m.annual_fee,
+      reference: document.getElementById('mp-ref').value || null,
+    }])
+  ]);
+  setBtn('markPaidBtn', false, 'Confirm Payment');
+  if(ue || pe) { showToast('Error recording payment', true); return; }
+  showToast(`Payment recorded for ${m.first_name} ${m.last_name}`);
+  closeModal('markPaidModal');
+  await loadAll();
+}
+
+async function recordPayment() {
+  const memberId = document.getElementById('pay-member').value;
+  const m = allMembers.find(x => x.id===memberId);
+  if(!m) return;
+  const amount = parseFloat(document.getElementById('pay-amount').value) || m.annual_fee;
+  setBtn('recordPayBtn', true, 'Save Payment');
+  const [{ error: ue }, { error: pe }] = await Promise.all([
+    db.from('members').update({ pay_status: 'Paid' }).eq('id', m.id),
+    db.from('payments').insert([{
+      member_id: m.id,
+      member_name: `${m.first_name} ${m.last_name}`,
+      subscription_year: parseInt(document.getElementById('pay-year').value) || CURRENT_YEAR,
+      payment_date: document.getElementById('pay-date').value,
+      method: document.getElementById('pay-method').value,
+      amount,
+      reference: document.getElementById('pay-ref').value || null,
+    }])
+  ]);
+  setBtn('recordPayBtn', false, 'Save Payment');
+  if(ue || pe) { showToast('Error saving payment', true); return; }
+  showToast('Payment saved');
+  closeModal('recordPaymentModal');
+  await loadAll();
+}
+
+// ── NAVIGATION ──────────────────────────────────────
+
+function showView(name, el) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  const titles = { dashboard:'Dashboard', members:'All Members', unpaid:'Unpaid Members', renewals:'Renewals', payments:'Payment History' };
+  document.getElementById('topbar-title').textContent = titles[name]||name;
+}
+
+function openModal(id) {
+  if(id==='recordPaymentModal') refreshMemberSelect();
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.addEventListener('click', e => {
+  if(e.target.classList.contains('modal-backdrop')) e.target.classList.remove('open');
+});
+
+document.getElementById('auth-password').addEventListener('keydown', e => {
+  if(e.key==='Enter') signIn();
+});
+
+// ── INIT ────────────────────────────────────────────
+
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if(session) {
+    await bootApp();
+  }
+})();
+</script>
+
+</body>
+</html>
