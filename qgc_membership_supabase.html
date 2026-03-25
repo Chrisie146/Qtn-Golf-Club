@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/18.12.0/xlsx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -237,6 +239,7 @@
     <div class="topbar">
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <div class="topbar-actions">
+        <button class="btn btn-outline btn-sm" id="exportBtn" style="display:none" onclick="exportCurrentView()">⬇ Export</button>
         <button class="btn btn-outline btn-sm" onclick="openModal('addMemberModal')">+ Add Member</button>
         <button class="btn btn-primary btn-sm" onclick="openModal('recordPaymentModal')">Record Payment</button>
       </div>
@@ -819,12 +822,14 @@ async function recordPayment() {
 // ── NAVIGATION ──────────────────────────────────────
 
 function showView(name, el) {
+  currentView = name;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   if(el) el.classList.add('active');
   const titles = { dashboard:'Dashboard', members:'All Members', unpaid:'Unpaid Members', renewals:'Renewals', payments:'Payment History' };
   document.getElementById('topbar-title').textContent = titles[name]||name;
+  updateExportButton();
 }
 
 function openModal(id) {
@@ -832,6 +837,114 @@ function openModal(id) {
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── EXPORTS ────────────────────────────────────────
+
+let currentView = 'dashboard';
+
+function updateExportButton() {
+  const btn = document.getElementById('exportBtn');
+  btn.style.display = ['dashboard','members','unpaid','payments'].includes(currentView) ? 'block' : 'none';
+}
+
+function exportCurrentView() {
+  const exports = {
+    dashboard: () => exportDashboardPDF(),
+    members: () => exportMembersExcel(),
+    unpaid: () => exportUnpaidExcel(),
+    payments: () => exportPaymentsExcel()
+  };
+  if(exports[currentView]) exports[currentView]();
+}
+
+function exportMembersExcel() {
+  const data = allMembers.map(m => ({
+    'First Name': m.first_name,
+    'Last Name': m.last_name,
+    'Member ID': m.member_number || m.id.slice(0,8),
+    'Email': m.email || '',
+    'Phone': m.phone || '',
+    'Category': m.category,
+    'Member Since': fmtDate(m.join_date),
+    'Year': m.subscription_year,
+    'Annual Fee (R)': m.annual_fee,
+    'Payment Status': m.pay_status
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Members');
+  XLSX.writeFile(wb, `QGC-Members-${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('Members list exported');
+}
+
+function exportUnpaidExcel() {
+  const unpaid = allMembers.filter(m => m.pay_status !== 'Paid');
+  const data = unpaid.map(m => ({
+    'Name': `${m.first_name} ${m.last_name}`,
+    'Member ID': m.member_number || m.id.slice(0,8),
+    'Category': m.category,
+    'Annual Fee (R)': m.annual_fee,
+    'Status': m.pay_status,
+    'Year': m.subscription_year
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Unpaid');
+  XLSX.writeFile(wb, `QGC-Unpaid-${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('Unpaid members exported');
+}
+
+function exportPaymentsExcel() {
+  const data = allPayments.map(p => ({
+    'Date': fmtDate(p.payment_date),
+    'Member': p.member_name,
+    'Year': p.subscription_year,
+    'Method': p.method,
+    'Amount (R)': p.amount,
+    'Reference': p.reference || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Payments');
+  XLSX.writeFile(wb, `QGC-Payments-${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('Payment history exported');
+}
+
+function exportDashboardPDF() {
+  const today = new Date().toISOString().split('T')[0];
+  const total = allMembers.length;
+  const paid = allMembers.filter(m => m.pay_status === 'Paid').length;
+  const pending = allMembers.filter(m => m.pay_status === 'Pending').length;
+  const overdue = allMembers.filter(m => m.pay_status === 'Overdue').length;
+  const collected = allPayments.filter(p => new Date(p.payment_date).getFullYear() === CURRENT_YEAR).reduce((s,p) => s + Number(p.amount), 0);
+  const outstanding = allMembers.filter(m => m.pay_status !== 'Paid').reduce((s,m) => s + Number(m.annual_fee), 0);
+  
+  const html = `
+    <div style="font-family:Arial,sans-serif;padding:20px;">
+      <h1 style="color:#27500A;margin-bottom:5px">Queenstown Golf Club</h1>
+      <h2 style="color:#3B6D11;font-size:18px;margin-bottom:20px">Membership Report — ${today}</h2>
+      <h3 style="color:#3B6D11;border-bottom:2px solid #3B6D11;padding-bottom:10px;margin-top:30px">Summary</h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:30px">
+        <tr style="background:#EAF3DE"><td style="padding:12px;border:1px solid #C0DD97;font-weight:bold">Total Members</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right">${total}</td></tr>
+        <tr><td style="padding:12px;border:1px solid #C0DD97">Paid (Current Year)</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right;color:#3B6D11;font-weight:bold">${paid} (${total?Math.round(paid/total*100):0}%)</td></tr>
+        <tr><td style="padding:12px;border:1px solid #C0DD97">Pending</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right">${pending}</td></tr>
+        <tr><td style="padding:12px;border:1px solid #C0DD97">Overdue</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right;color:#A32D2D;font-weight:bold">${overdue}</td></tr>
+      </table>
+      <h3 style="color:#3B6D11;border-bottom:2px solid #3B6D11;padding-bottom:10px;margin-top:30px">Finance</h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:30px">
+        <tr style="background:#EAF3DE"><td style="padding:12px;border:1px solid #C0DD97;font-weight:bold">Collected (YTD)</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right;font-weight:bold">R ${collected.toLocaleString()}</td></tr>
+        <tr><td style="padding:12px;border:1px solid #C0DD97">Outstanding</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right;color:#A32D2D;font-weight:bold">R ${outstanding.toLocaleString()}</td></tr>
+        <tr><td style="padding:12px;border:1px solid #C0DD97">Payments Recorded</td><td style="padding:12px;border:1px solid #C0DD97;text-align:right">${allPayments.filter(p=>new Date(p.payment_date).getFullYear()===CURRENT_YEAR).length}</td></tr>
+      </table>
+      <p style="color:#888780;font-size:12px;margin-top:30px">Generated: ${new Date().toLocaleString('en-ZA')}</p>
+    </div>
+  `;
+  const element = document.createElement('div');
+  element.innerHTML = html;
+  const opt = { margin: 10, filename: `QGC-Report-${today}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }};
+  html2pdf().set(opt).from(element).save();
+  showToast('Dashboard exported as PDF');
+}
 
 document.addEventListener('click', e => {
   if(e.target.classList.contains('modal-backdrop')) e.target.classList.remove('open');
