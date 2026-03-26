@@ -774,19 +774,25 @@ function prefillFeeEdit() {
 let editingMemberId = null;
 
 function openEditMember(id) {
-  editingMemberId = id;
-  const m = allMembers.find(x => x.id === id);
-  if(!m) return;
-  document.getElementById('edit-first').value = m.first_name || '';
-  document.getElementById('edit-last').value = m.last_name || '';
-  document.getElementById('edit-email').value = m.email || '';
-  document.getElementById('edit-phone').value = m.phone || '';
-  document.getElementById('edit-cat').value = m.category || 'Full';
-  document.getElementById('edit-joined').value = m.join_date || '';
-  document.getElementById('edit-year').value = m.subscription_year || CURRENT_YEAR;
-  document.getElementById('edit-fee').value = m.annual_fee || '';
-  document.getElementById('edit-paystatus').value = m.pay_status || 'Pending';
-  openModal('editMemberModal');
+  try {
+    console.log('openEditMember called with id:', id);
+    editingMemberId = id;
+    const m = allMembers.find(x => x.id === id);
+    if(!m) { console.warn('Member not found for edit:', id); showToast('Member not found', true); return; }
+    document.getElementById('edit-first').value = m.first_name || '';
+    document.getElementById('edit-last').value = m.last_name || '';
+    document.getElementById('edit-email').value = m.email || '';
+    document.getElementById('edit-phone').value = m.phone || '';
+    document.getElementById('edit-cat').value = m.category || 'Full';
+    document.getElementById('edit-joined').value = m.join_date || '';
+    document.getElementById('edit-year').value = m.subscription_year || CURRENT_YEAR;
+    document.getElementById('edit-fee').value = m.annual_fee || '';
+    document.getElementById('edit-paystatus').value = m.pay_status || 'Pending';
+    openModal('editMemberModal');
+  } catch (err) {
+    console.error('Error in openEditMember:', err);
+    showToast('Error opening edit modal', true);
+  }
 }
 
 async function saveMemberEdit() {
